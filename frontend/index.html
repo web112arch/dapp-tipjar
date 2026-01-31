@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dapp-tipjar</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 820px; margin: 40px auto; padding: 0 16px; }
+      .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin: 12px 0; }
+      button { padding: 10px 14px; border: 0; border-radius: 10px; cursor: pointer; }
+      input { padding: 10px; width: 220px; border-radius: 10px; border: 1px solid #ccc; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      .muted { color: #666; font-size: 14px; }
+      .ok { color: #0a7; }
+      .err { color: #c00; }
+      code { background: #f5f5f5; padding: 2px 6px; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>dapp-tipjar</h1>
+    <p class="muted">Conectar MetaMask, enviar tip e (se for owner) sacar.</p>
+
+    <div class="card">
+      <div class="row">
+        <button id="btnConnect">Conectar Wallet</button>
+        <span id="net"></span>
+      </div>
+      <p>Conta: <code id="account">-</code></p>
+      <p>Status: <span id="status" class="muted">desconectado</span></p>
+    </div>
+
+    <div class="card">
+      <h3>Contrato</h3>
+      <p>Endereço: <code id="contractAddr">-</code></p>
+      <p>Owner: <code id="ownerAddr">-</code></p>
+      <p>Saldo do contrato: <code id="contractBal">-</code> ETH</p>
+      <p>Total tipped: <code id="totalTipped">-</code> ETH</p>
+      <div class="row">
+        <button id="btnRefresh">Atualizar dados</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Enviar Tip</h3>
+      <div class="row">
+        <input id="tipAmount" type="number" min="0" step="0.0001" placeholder="0.001" />
+        <button id="btnTip">Enviar</button>
+      </div>
+      <p class="muted">Dica: o contrato aceita também enviar ETH direto (receive).</p>
+    </div>
+
+    <div class="card">
+      <h3>Sacar (Owner)</h3>
+      <div class="row">
+        <button id="btnWithdraw">Withdraw</button>
+      </div>
+      <p class="muted">Só funciona se sua conta conectada for o owner.</p>
+    </div>
+
+    <div class="card">
+      <h3>Log</h3>
+      <pre id="log" style="white-space: pre-wrap;"></pre>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

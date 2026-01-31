@@ -1,0 +1,146 @@
+// ====== CONFIG ======
+const CONTRACT_ADDRESS = "0xSEU_CONTRATO_AQUI"; // <-- coloque o endereço do deploy
+const ABI = [
+  // TipJar ABI mínima
+  { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
+  { "anonymous": false, "inputs": [
+    { "indexed": true, "internalType": "address", "name": "from", "type": "address" },
+    { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+  ], "name": "TipReceived", "type": "event" },
+  { "anonymous": false, "inputs": [
+    { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+    { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+  ], "name": "Withdraw", "type": "event" },
+  { "inputs": [], "name": "owner", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" },
+  { "inputs": [], "name": "tip", "outputs": [], "stateMutability": "payable", "type": "function" },
+  { "inputs": [], "name": "totalTipped", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
+  { "inputs": [], "name": "withdraw", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "stateMutability": "payable", "type": "receive" }
+];
+
+// ====== UI ======
+const $ = (id) => document.getElementById(id);
+const log = (msg) => {
+  const el = $("log");
+  el.textContent = `${new Date().toLocaleString()} - ${msg}\n` + el.textContent;
+};
+const setStatus = (msg, cls = "muted") => {
+  const el = $("status");
+  el.className = cls;
+  el.textContent = msg;
+};
+
+// ====== Ethers / State ======
+let provider, signer, contract, account;
+
+function fmtEth(bn) {
+  try { return ethers.formatEther(bn); } catch { return "-"; }
+}
+
+async function ensureMetamask() {
+  if (!window.ethereum) {
+    setStatus("MetaMask não detectada", "err");
+    throw new Error("MetaMask não detectada");
+  }
+}
+
+async function connect() {
+  await ensureMetamask();
+
+  provider = new ethers.BrowserProvider(window.ethereum);
+  const accounts = await provider.send("eth_requestAccounts", []);
+  account = accounts[0];
+
+  signer = await provider.getSigner();
+  contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+  $("account").textContent = account;
+  $("contractAddr").textContent = CONTRACT_ADDRESS;
+
+  const network = await provider.getNetwork();
+  $("net").textContent = `Rede: ${network.name} (chainId ${network.chainId})`;
+
+  setStatus("conectado", "ok");
+  log("Wallet conectada: " + account);
+
+  // listeners
+  window.ethereum.on?.("accountsChanged", () => window.location.reload());
+  window.ethereum.on?.("chainChanged", () => window.location.reload());
+
+  await refresh();
+  watchEvents();
+}
+
+async function refresh() {
+  if (!provider) return;
+
+  const ownerAddr = await contract.owner();
+  $("ownerAddr").textContent = ownerAddr;
+
+  const bal = await provider.getBalance(CONTRACT_ADDRESS);
+  $("contractBal").textContent = fmtEth(bal);
+
+  const total = await contract.totalTipped();
+  $("totalTipped").textContent = fmtEth(total);
+
+  log("Dados atualizados.");
+}
+
+let eventsAttached = false;
+function watchEvents() {
+  if (!contract || eventsAttached) return;
+  eventsAttached = true;
+
+  contract.on("TipReceived", (from, amount) => {
+    log(`TipReceived: ${from} enviou ${fmtEth(amount)} ETH`);
+    refresh().catch(() => {});
+  });
+
+  contract.on("Withdraw", (to, amount) => {
+    log(`Withdraw: ${to} sacou ${fmtEth(amount)} ETH`);
+    refresh().catch(() => {});
+  });
+}
+
+async function sendTip() {
+  if (!contract) throw new Error("Conecte primeiro.");
+  const amount = $("tipAmount").value?.trim();
+  if (!amount || Number(amount) <= 0) throw new Error("Valor inválido.");
+
+  setStatus("enviando tip...", "muted");
+  log(`Enviando tip de ${amount} ETH...`);
+
+  const tx = await contract.tip({ value: ethers.parseEther(amount) });
+  log("TX enviada: " + tx.hash);
+
+  const receipt = await tx.wait();
+  log("Confirmada no bloco: " + receipt.blockNumber);
+
+  setStatus("tip enviado ✅", "ok");
+  await refresh();
+}
+
+async function withdraw() {
+  if (!contract) throw new Error("Conecte primeiro.");
+
+  setStatus("sacando...", "muted");
+  log("Chamando withdraw()...");
+
+  const tx = await contract.withdraw();
+  log("TX enviada: " + tx.hash);
+
+  const receipt = await tx.wait();
+  log("Withdraw confirmado no bloco: " + receipt.blockNumber);
+
+  setStatus("withdraw ✅", "ok");
+  await refresh();
+}
+
+// ====== Bindings ======
+$("btnConnect").onclick = () => connect().catch((e) => { setStatus(e.message, "err"); log("Erro: " + e.message); });
+$("btnRefresh").onclick = () => refresh().catch((e) => { log("Erro refresh: " + e.message); });
+$("btnTip").onclick = () => sendTip().catch((e) => { setStatus(e.message, "err"); log("Erro tip: " + e.message); });
+$("btnWithdraw").onclick = () => withdraw().catch((e) => { setStatus(e.message, "err"); log("Erro withdraw: " + e.message); });
+
+// Inicial
+$("contractAddr").textContent = CONTRACT_ADDRESS;
